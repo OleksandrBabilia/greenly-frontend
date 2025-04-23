@@ -8,7 +8,6 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Greenly - AI Assistant",
   description: "Your eco-friendly AI assistant",
-    generator: 'v0.dev'
 }
 
 export default function RootLayout({
