@@ -3,7 +3,7 @@ import { openai } from "@ai-sdk/openai"
 
 export async function POST(req: Request) {
   try {
-    const { messages, image } = await req.json()
+    const { messages, image, chatId } = await req.json()
 
     // This is a placeholder for your custom LLM integration
     // In a real implementation, you would replace this with your custom model
@@ -25,11 +25,25 @@ export async function POST(req: Request) {
       return message
     })
 
+    // In a real implementation, you might generate images here based on the conversation
+    // and include them in the response
     const result = streamText({
       model: openai("gpt-4o"), // Replace with your custom model
-      system: "You are Greenly, an eco-friendly AI assistant focused on sustainability and environmental topics.",
+      system:
+        "You are Greenly, an eco-friendly AI assistant focused on sustainability and environmental topics. You can generate and analyze images.",
       messages: formattedMessages,
     })
+
+    // In a real implementation, you would check if the model wants to generate an image
+    // and then call an image generation API like DALL-E
+    // const shouldGenerateImage = checkIfShouldGenerateImage(messages);
+    // let generatedImageUrl = null;
+    // if (shouldGenerateImage) {
+    //   generatedImageUrl = await generateImage(prompt);
+    // }
+
+    // You would then need to modify the response to include the image URL
+    // This is just a placeholder for the actual implementation
 
     return result.toDataStreamResponse()
   } catch (error) {
