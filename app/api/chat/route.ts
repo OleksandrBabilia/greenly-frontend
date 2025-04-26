@@ -3,7 +3,9 @@ import { openai } from "@ai-sdk/openai"
 
 export async function POST(req: Request) {
   try {
-    const { messages, image, chatId } = await req.json()
+    const { messages, image, chatId, user_id } = await req.json()
+
+    console.log(`Processing chat request${user_id ? ` for user: ${user_id}` : " (anonymous)"}`)
 
     // This is a placeholder for your custom LLM integration
     // In a real implementation, you would replace this with your custom model
@@ -49,6 +51,67 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("Error in chat API:", error)
     return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    // Extract chat ID and user ID from the URL
+    const url = new URL(req.url)
+    const chatId = url.pathname.split("/").pop()
+    const userId = url.searchParams.get("userId")
+
+    if (!chatId) {
+      return new Response(JSON.stringify({ error: "Chat ID is required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+
+    console.log(`Fetching chat history for chat: ${chatId}${userId ? `, user: ${userId}` : " (anonymous)"}`)
+
+    // In a real implementation, you would fetch chat history from your database
+    // based on the chat ID and user ID
+
+    // For demo purposes, return an empty array or mock data
+    // If userId is provided, we can return mock chat history
+    let messages = []
+
+    if (userId) {
+      // Mock chat history for authenticated users
+      messages = [
+        {
+          chat_id: chatId,
+          role: "assistant",
+          content: "Hello! I'm Greenly, your eco-friendly AI assistant. How can I help you today?",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          chat_id: chatId,
+          role: "user",
+          content: "I'd like to learn about sustainable gardening.",
+          timestamp: new Date(Date.now() - 60000).toISOString(),
+        },
+        {
+          chat_id: chatId,
+          role: "assistant",
+          content:
+            "Great choice! Sustainable gardening is an eco-friendly approach that minimizes environmental impact while maximizing garden productivity. Would you like to know about composting, water conservation, or native plants?",
+          timestamp: new Date(Date.now() - 30000).toISOString(),
+        },
+      ]
+    }
+
+    return new Response(JSON.stringify(messages), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  } catch (error) {
+    console.error("Error fetching chat history:", error)
+    return new Response(JSON.stringify({ error: "Failed to fetch chat history" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     })

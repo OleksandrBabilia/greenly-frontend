@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useEffect, useRef } from "react"
-import { ThemeProvider } from "@/components/theme-provider"
 import { useState } from "react"
 import { useChatService } from "@/hooks/use-chat-service"
 import { useImageHandler } from "@/hooks/use-image-handler"
@@ -161,66 +160,64 @@ export default function ChatPage() {
   }
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="light">
-      <div className="flex h-screen bg-white">
-        {/* Sidebar */}
-        <Sidebar
-          chats={chats}
-          activeChat={activeChat}
-          sidebarOpen={sidebarOpen}
+    <div className="flex h-screen bg-white">
+      {/* Sidebar */}
+      <Sidebar
+        chats={chats}
+        activeChat={activeChat}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        createNewChat={createNewChat}
+        switchChat={switchChat}
+        deleteChat={handleDeleteChat}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Header */}
+        <ChatHeader
+          title={getCurrentChat()?.title || "New Chat"}
+          isInitialMode={isInitialMode}
           setSidebarOpen={setSidebarOpen}
           createNewChat={createNewChat}
-          switchChat={switchChat}
-          deleteChat={handleDeleteChat}
         />
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden">
-          {/* Header */}
-          <ChatHeader
-            title={getCurrentChat()?.title || "New Chat"}
-            isInitialMode={isInitialMode}
-            setSidebarOpen={setSidebarOpen}
-            createNewChat={createNewChat}
+        {/* Error Banner */}
+        <ErrorBanner error={error} />
+
+        {/* Content Area */}
+        {isInitialMode ? (
+          <InitialUpload
+            onSubmit={handleInitialSubmit}
+            isLoading={isLoading}
+            selectedImage={selectedImage}
+            isDragging={isDragging}
+            initialFileInputRef={initialFileInputRef}
+            handleDragOver={handleDragOver}
+            handleDragLeave={handleDragLeave}
+            handleDrop={handleDrop}
+            handleImageSelect={handleImageSelect}
+            removeSelectedImage={removeSelectedImage}
           />
+        ) : (
+          <>
+            {/* Chat Messages */}
+            <main className="flex-1 container px-4 py-6 overflow-auto">
+              <MessageList messages={getCurrentMessages()} isLoading={isLoading} messagesEndRef={messagesEndRef} />
+            </main>
 
-          {/* Error Banner */}
-          <ErrorBanner error={error} />
-
-          {/* Content Area */}
-          {isInitialMode ? (
-            <InitialUpload
-              onSubmit={handleInitialSubmit}
+            {/* Chat Input */}
+            <ChatInput
+              onSubmit={handleChatSubmit}
               isLoading={isLoading}
               selectedImage={selectedImage}
-              isDragging={isDragging}
-              initialFileInputRef={initialFileInputRef}
-              handleDragOver={handleDragOver}
-              handleDragLeave={handleDragLeave}
-              handleDrop={handleDrop}
-              handleImageSelect={handleImageSelect}
               removeSelectedImage={removeSelectedImage}
+              fileInputRef={fileInputRef}
+              handleImageSelect={handleImageSelect}
             />
-          ) : (
-            <>
-              {/* Chat Messages */}
-              <main className="flex-1 container px-4 py-6 overflow-auto">
-                <MessageList messages={getCurrentMessages()} isLoading={isLoading} messagesEndRef={messagesEndRef} />
-              </main>
-
-              {/* Chat Input */}
-              <ChatInput
-                onSubmit={handleChatSubmit}
-                isLoading={isLoading}
-                selectedImage={selectedImage}
-                removeSelectedImage={removeSelectedImage}
-                fileInputRef={fileInputRef}
-                handleImageSelect={handleImageSelect}
-              />
-            </>
-          )}
-        </div>
+          </>
+        )}
       </div>
-    </ThemeProvider>
+    </div>
   )
 }

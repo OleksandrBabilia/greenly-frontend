@@ -4,8 +4,10 @@ import { useState } from "react"
 import { v4 as uuidv4 } from "uuid"
 import { format } from "date-fns"
 import type { Chat, Message, ServerMessage } from "@/types"
+import { useAuth } from "@/contexts/auth-context"
 
 export function useChatService() {
+  const { user, isAuthenticated } = useAuth()
   const [chats, setChats] = useState<Chat[]>([])
   const [activeChat, setActiveChat] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -14,10 +16,25 @@ export function useChatService() {
 
   // Fetch chat history from server
   const fetchChatHistory = async (chatId: string) => {
+    // Only fetch chat history if user is authenticated
+    if (!isAuthenticated) {
+      // Add a welcome message for non-authenticated users
+      addMessageToChat(chatId, {
+        role: "assistant",
+        content: "Hello! I'm Greenly, your eco-friendly AI assistant. Sign in to save your chat history.",
+        timestamp: new Date(),
+      })
+      return
+    }
+
     try {
       setIsLoading(true)
       setError(null)
-      const response = await fetch(`http://localhost:8080/chat/${chatId}`)
+
+      // Include user ID in the request
+      const response = await fetch(`http://localhost:8080/chat/${chatId}?userId=${user?.id}`, {
+        credentials: "include", // Include cookies for authentication
+      })
 
       if (!response.ok) {
         throw new Error(`Failed to fetch chat history: ${response.status}`)
@@ -129,18 +146,28 @@ export function useChatService() {
   const sendMessageToServer = async (chatId: string, message: Message): Promise<Message | null> => {
     try {
       setError(null)
+
+      // Prepare request body with optional user ID
+      const requestBody: any = {
+        chat_id: chatId,
+        role: message.role,
+        content: message.content,
+        // Include image data if present
+        ...(message.image && { image: message.image }),
+      }
+
+      // Add user ID if authenticated
+      if (isAuthenticated && user) {
+        requestBody.user_id = user.id
+      }
+
       const response = await fetch("http://localhost:8080/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          chat_id: chatId,
-          role: message.role,
-          content: message.content,
-          // Include image data if present
-          ...(message.image && { image: message.image }),
-        }),
+        credentials: "include", // Include cookies for authentication
+        body: JSON.stringify(requestBody),
       })
 
       if (!response.ok) {

@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Menu, Plus } from "lucide-react"
+import { AuthButton } from "@/components/auth/auth-button"
 
 interface ChatHeaderProps {
   title: string
@@ -22,16 +23,19 @@ export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat
           <h2 className="text-lg font-medium text-green-700 truncate">{title || "New Chat"}</h2>
         </div>
 
-        {!isInitialMode && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={createNewChat}
-            className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
-          >
-            <Plus className="w-4 h-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isInitialMode && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={createNewChat}
+              className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+            >
+              <Plus className="w-4 h-4" />
+            </Button>
+          )}
+          <AuthButton />
+        </div>
       </div>
     </header>
   )
