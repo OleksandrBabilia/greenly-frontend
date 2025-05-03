@@ -5,6 +5,7 @@ export type Message = {
   image?: string // Base64 encoded image from user
   responseImage?: string // Base64 encoded image from AI response
   timestamp?: Date
+  objectName?: string // Name of the object in the image
 }
 
 // Define server response type
@@ -13,6 +14,8 @@ export type ServerMessage = {
   role: string
   content: string
   timestamp: string
+  object_name?: string // Name of the object in the image
+  image?: string // Image response from the backend in bytes format
 }
 
 export type Chat = {
@@ -20,4 +23,6 @@ export type Chat = {
   title: string
   createdAt: Date
   messages: Message[]
+  mainImage?: string // Store the main image for the chat
+  objectName?: string // Store the object name for the main image
 }

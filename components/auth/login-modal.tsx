@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import Image from "next/image"
+import { GOOGLE_AUTH_URL, GOOGLE_CLIENT_ID } from "@/utils/api-config"
 
 interface LoginModalProps {
   isOpen: boolean
@@ -40,7 +41,9 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
     try {
       // Redirect to Google OAuth
-      const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=599810607267-kup1ctmvk591atmjp33o7eos3q0iaci3.apps.googleusercontent.com&redirect_uri=${encodeURIComponent(
+      const googleAuthUrl = `${GOOGLE_AUTH_URL}?client_id=${encodeURIComponent(
+        GOOGLE_CLIENT_ID,
+      )}&redirect_uri=${encodeURIComponent(
         redirectUri,
       )}&response_type=code&scope=openid%20email%20profile&prompt=select_account`
 

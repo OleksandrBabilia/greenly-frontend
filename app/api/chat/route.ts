@@ -3,9 +3,10 @@ import { openai } from "@ai-sdk/openai"
 
 export async function POST(req: Request) {
   try {
-    const { messages, image, chatId, user_id } = await req.json()
+    const { messages, image, chatId, user_id, object_name, chat_history } = await req.json()
 
     console.log(`Processing chat request${user_id ? ` for user: ${user_id}` : " (anonymous)"}`)
+    console.log(`Object name: ${object_name || "Not provided"}`)
 
     // This is a placeholder for your custom LLM integration
     // In a real implementation, you would replace this with your custom model
@@ -26,6 +27,11 @@ export async function POST(req: Request) {
       }
       return message
     })
+
+    // Include chat history if provided
+    if (chat_history && Array.isArray(chat_history) && chat_history.length > 0) {
+      console.log(`Including chat history with ${chat_history.length} messages`)
+    }
 
     // In a real implementation, you might generate images here based on the conversation
     // and include them in the response
@@ -101,6 +107,9 @@ export async function GET(req: Request) {
           content:
             "Great choice! Sustainable gardening is an eco-friendly approach that minimizes environmental impact while maximizing garden productivity. Would you like to know about composting, water conservation, or native plants?",
           timestamp: new Date(Date.now() - 30000).toISOString(),
+          // Example of including an image response
+          image:
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjlmMCIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iODAiIGZpbGw9IiM0YWRlODAiLz48cGF0aCBkPSJNMTYwIDEyMEMyMDAgODAgMjQwIDEyMCAyNDAgMTIwQzI0MCAxMjAgMjgwIDE2MCAyNDAgMjAwQzIwMCAyNDAgMTYwIDIwMCAxNjAgMjAwQzE2MCAyMDAgMTIwIDE2MCAxNjAgMTIwWiIgZmlsbD0iIzIyYzU1ZSIvPjxwYXRoIGQ9Ik0yMDAgNzBMMjEwIDkwTDIzMCA5MEwyMTUgMTA1TDIyMCAxMjVMMjAwIDExNUwxODAgMTI1TDE4NSAxMDVMMTcwIDkwTDE5MCA5MFoiIGZpbGw9IiMxNmEzNGEiLz48L3N2Zz4=",
         },
       ]
     }

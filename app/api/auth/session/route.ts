@@ -1,15 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { GOOGLE_USERINFO_URL, ACCESS_TOKEN_COOKIE } from "@/utils/api-config"
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = request.cookies.get("greenly_access_token")?.value
+    const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value
 
     if (!accessToken) {
       return NextResponse.json({ isAuthenticated: false, user: null })
     }
 
     // Get user info from Google
-    const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+    const userInfoResponse = await fetch(GOOGLE_USERINFO_URL, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

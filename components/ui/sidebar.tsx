@@ -139,6 +139,7 @@ interface SidebarProps {
   createNewChat: () => void
   switchChat: (chatId: string) => void
   deleteChat: (chatId: string, e: React.MouseEvent) => void
+  isLoading?: boolean
 }
 
 export function Sidebar({
@@ -149,6 +150,7 @@ export function Sidebar({
   createNewChat,
   switchChat,
   deleteChat,
+  isLoading = false,
 }: SidebarProps) {
   return (
     <div
@@ -171,30 +173,42 @@ export function Sidebar({
           <Plus className="w-4 h-4 mr-2" /> New Chat
         </Button>
 
-        <div className="space-y-2 mt-2">
-          {chats.map((chat) => (
-            <div
-              key={chat.id}
-              onClick={() => switchChat(chat.id)}
-              className={`flex items-center justify-between p-2 rounded-md cursor-pointer ${
-                activeChat === chat.id ? "bg-green-100 text-green-800" : "hover:bg-gray-100"
-              }`}
-            >
-              <div className="flex items-center overflow-hidden">
-                <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span className="truncate text-sm">{chat.title}</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => deleteChat(chat.id, e)}
-                className="opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-red-100 hover:text-red-600 h-6 w-6"
-              >
-                <Trash2 className="w-3 h-3" />
-              </Button>
+        {isLoading ? (
+          <div className="space-y-2 mt-2">
+            <div className="flex items-center justify-center p-4">
+              <div className="w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="space-y-2 mt-2">
+            {chats.length === 0 ? (
+              <div className="text-center text-gray-500 p-4">No chats yet</div>
+            ) : (
+              chats.map((chat) => (
+                <div
+                  key={chat.id}
+                  onClick={() => switchChat(chat.id)}
+                  className={`flex items-center justify-between p-2 rounded-md cursor-pointer group ${
+                    activeChat === chat.id ? "bg-green-100 text-green-800" : "hover:bg-gray-100"
+                  }`}
+                >
+                  <div className="flex items-center overflow-hidden">
+                    <MessageSquare className="w-4 h-4 mr-2 flex-shrink-0" />
+                    <span className="truncate text-sm">{chat.title}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={(e) => deleteChat(chat.id, e)}
+                    className="opacity-0 group-hover:opacity-100 hover:opacity-100 hover:bg-red-100 hover:text-red-600 h-6 w-6"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

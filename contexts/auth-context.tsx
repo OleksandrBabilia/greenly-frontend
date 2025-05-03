@@ -2,6 +2,8 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect } from "react"
+import { convertToNipIo } from "@/utils/nip-io"
+import { getApiUrl } from "@/utils/api-config"
 
 export type User = {
   id: string
@@ -16,6 +18,7 @@ type AuthContextType = {
   isAuthenticated: boolean
   login: (user: User) => void
   logout: () => void
+  fetchUserChats: () => Promise<any[]>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -100,6 +103,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Fetch all chats for the authenticated user
+  const fetchUserChats = async () => {
+    if (!user) return []
+
+    try {
+      // Use nip.io for IP addresses
+      const userChatsUrl = convertToNipIo(getApiUrl(`user/${user.id}`))
+
+      const response = await fetch(userChatsUrl, {
+        credentials: "include", // Include cookies for authentication
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user chats: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error("Error fetching user chats:", error)
+      return []
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -108,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        fetchUserChats,
       }}
     >
       {children}
