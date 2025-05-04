@@ -13,8 +13,8 @@ import { ChatInput } from "@/components/chat/chat-input"
 import { InitialUpload } from "@/components/chat/initial-upload"
 import { ErrorBanner } from "@/components/chat/error-banner"
 import { useAuth } from "@/contexts/auth-context"
-// Update the imports to include ChatHeaderImage
 import { ChatHeaderImage } from "@/components/chat/chat-header-image"
+import { Toaster } from "@/components/ui/toaster"
 
 export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -157,10 +157,11 @@ export default function ChatPage() {
       addMessageToChat(activeChat, {
         ...serverResponse,
         // If the server doesn't provide these, we can add them client-side
-        ...(Math.random() > 0.5 && {
-          responseImage:
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjlmMCIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iODAiIGZpbGw9IiM0YWRlODAiLz48cGF0aCBkPSJNMTYwIDEyMEMyMDAgODAgMjQwIDEyMCAyNDAgMTIwQzI0MCAxMjAgMjgwIDE2MCAyNDAgMjAwQzIwMCAyNDAgMTYwIDIwMCAxNjAgMjAwQzE2MCAyMDAgMTIwIDE2MCAxNjAgMTIwWiIgZmlsbD0iIzIyYzU1ZSIvPjxwYXRoIGQ9Ik0yMDAgNzBMMjEwIDkwTDIzMCA5MEwyMTUgMTA1TDIyMCAxMjVMMjAwIDExNUwxODAgMTI1TDE4NSAxMDVMMTcwIDkwTDE5MCA5MFoiIGZpbGw9IiMxNmEzNGEiLz48L3N2Zz4=",
-        }),
+        ...(Math.random() > 0.5 &&
+          !serverResponse.responseImage && {
+            responseImage:
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjlmMCIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iODAiIGZpbGw9IiM0YWRlODAiLz48cGF0aCBkPSJNMTYwIDEyMEMyMDAgODAgMjQwIDEyMCAyNDAgMTIwQzI0MCAxMjAgMjgwIDE2MCAyNDAgMjAwQzIwMCAyNDAgMTYwIDIwMCAxNjAgMjAwQzE2MCAyMDAgMTIwIDE2MCAxNjAgMTIwWiIgZmlsbD0iIzIyYzU1ZSIvPjxwYXRoIGQ9Ik0yMDAgNzBMMjEwIDkwTDIzMCA5MEwyMTUgMTA1TDIyMCAxMjVMMjAwIDExNUwxODAgMTI1TDE4NSAxMDVMMTcwIDkwTDE5MCA5MFoiIGZpbGw9IiMxNmEzNGEiLz48L3N2Zz4=",
+          }),
       })
 
       // Refresh user chats if authenticated
@@ -185,7 +186,6 @@ export default function ChatPage() {
     deleteChat(chatId)
   }
 
-  // Update the JSX to include the ChatHeaderImage component
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar */}
@@ -234,7 +234,12 @@ export default function ChatPage() {
 
             {/* Chat Messages */}
             <main className="flex-1 container px-4 py-6 overflow-auto">
-              <MessageList messages={getCurrentMessages()} isLoading={isLoading} messagesEndRef={messagesEndRef} />
+              <MessageList
+                messages={getCurrentMessages()}
+                isLoading={isLoading}
+                messagesEndRef={messagesEndRef}
+                onAddMessage={(message) => activeChat && addMessageToChat(activeChat, message)}
+              />
             </main>
 
             {/* Chat Input */}
@@ -249,6 +254,9 @@ export default function ChatPage() {
           </>
         )}
       </div>
+
+      {/* Toast notifications */}
+      <Toaster />
     </div>
   )
 }

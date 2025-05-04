@@ -344,7 +344,8 @@ export function useChatService() {
         content: data.content,
         timestamp: new Date(data.timestamp),
         ...(data.object_name && { objectName: data.object_name }),
-        ...(data.image && { responseImage: data.image }), // Include image from response if present
+        ...(data.image && { image: data.image }), // Include image from response if present
+        ...(data.image_name && { image_name: data.image_name }), 
       }
     } catch (error) {
       console.error("Error sending message to server:", error)
