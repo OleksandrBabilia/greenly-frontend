@@ -63,6 +63,7 @@ export function useChatService() {
           ...(msg.image && { image: msg.image }),
           ...(msg.responseImage && { responseImage: msg.responseImage }),
           ...(msg.object_name && { objectName: msg.object_name }),
+          ...(msg.image_name && { image_name: msg.image_name }),
         })
       })
 
@@ -163,6 +164,8 @@ export function useChatService() {
         content: msg.content,
         timestamp: new Date(msg.timestamp),
         ...(msg.object_name && { objectName: msg.object_name }),
+        ...(msg.image && { image: msg.image }),
+        ...(msg.image_name && { image_name: msg.image_name }),
       }))
 
       // If we have messages, update the chat
@@ -338,7 +341,11 @@ export function useChatService() {
 
       const data: ServerMessage = await response.json()
 
-      // Convert server response to our Message format
+      // Debug log to check image_name in server response
+      console.log("Server response data:", data)
+      if (data.image_name) {
+        console.log("Received image_name from server:", data.image_name)
+      }      // Convert server response to our Message format
       return {
         role: data.role as "user" | "assistant",
         content: data.content,
@@ -356,6 +363,10 @@ export function useChatService() {
 
   // Add a message to the current chat
   const addMessageToChat = (chatId: string, message: Message) => {
+    // Debug log
+    if (message.image_name) {
+      console.log("Adding message with image_name to chat:", message.image_name)
+    }
     setChats((prev) =>
       prev.map((chat) => {
         if (chat.id === chatId) {

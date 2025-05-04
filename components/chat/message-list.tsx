@@ -15,25 +15,36 @@ import { sendGreenItRequest, downloadImage } from "@/services/image-service"
 import { useAuth } from "@/contexts/auth-context"
 import { useToast } from "@/hooks/use-toast"
 
+// Update the MessageListProps interface to include activeChat
 interface MessageListProps {
   messages: Message[]
   isLoading: boolean
   messagesEndRef: React.RefObject<HTMLDivElement>
   onAddMessage: (message: Message) => void
+  activeChat: string | null // Add this line to get the current chat ID
 }
 
-export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage }: MessageListProps) {
+// Update the function signature to include activeChat
+export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage, activeChat }: MessageListProps) {
   console.log("MessageList rendering with", messages.length, "messages")
   console.log("Messages with assistant images:", messages.filter((m) => m.role === "assistant" && m.image).length)
+
+  // Debug log to check image_name in messages
+  console.log(
+    "Messages with image_name:",
+    messages.filter((m) => m.image_name).map((m) => m.image_name),
+  )
 
   const { user } = useAuth()
   const { toast } = useToast()
   const [hoveredImageIndex, setHoveredImageIndex] = useState<number | null>(null)
   const [comparisonImages, setComparisonImages] = useState<{ original: string; processed: string } | null>(null)
+  // Update the greenItModal state type to include chatId
   const [greenItModal, setGreenItModal] = useState<{
     isOpen: boolean
     originalImage: string | null
     currentImage: string
+    chatId?: string
     imageName?: string
   } | null>(null)
   const [editorState, setEditorState] = useState<{
@@ -70,13 +81,19 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage 
     }
   }
 
-  // Open Green It modal
+  // Update the openGreenItModal function to include chatId
   const openGreenItModal = (currentImage: string, index: number, imageName?: string) => {
     const originalImage = findOriginalImage(index)
+
+    // Debug log
+    console.log("Opening Green It modal with image name:", imageName)
+    console.log("Current active chat:", activeChat)
+
     setGreenItModal({
       isOpen: true,
       originalImage,
       currentImage,
+      chatId: activeChat || undefined, // Store the active chat ID
       imageName,
     })
   }
@@ -110,16 +127,21 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage 
     setEditorState(null)
   }
 
-  // Handle Green It submission
+  // Update the handleGreenItSubmit function to pass chatId
   const handleGreenItSubmit = async (positivePrompt: string, negativePrompt: string) => {
     if (!greenItModal) return
 
     try {
+      // Debug log
+      console.log("Sending Green It request with image name:", greenItModal.imageName)
+      console.log("Sending Green It request for chat:", greenItModal.chatId)
+
       const result = await sendGreenItRequest(
         greenItModal.originalImage,
         greenItModal.currentImage,
         positivePrompt,
         negativePrompt,
+        greenItModal.chatId, // Pass the chat ID to the request
         greenItModal.imageName,
         user?.id,
       )
@@ -172,6 +194,11 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage 
   const renderImage = (src: string, alt: string, index: number, isAssistantImage = false, imageName?: string) => {
     // Check if this response has a corresponding original image for comparison
     const hasOriginalForComparison = isAssistantImage && findOriginalImage(index) !== null
+
+    // Debug log
+    if (isAssistantImage) {
+      console.log(`Rendering assistant image at index ${index} with name:`, imageName)
+    }
 
     return (
       <div className={`${isAssistantImage ? "mt-3" : "mb-3"} relative group`}>
@@ -304,6 +331,7 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage 
           onClose={() => setGreenItModal(null)}
           originalImage={greenItModal.originalImage}
           currentImage={greenItModal.currentImage}
+          imageName={greenItModal.imageName}
           onSubmit={handleGreenItSubmit}
         />
       )}

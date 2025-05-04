@@ -239,6 +239,7 @@ export default function ChatPage() {
                 isLoading={isLoading}
                 messagesEndRef={messagesEndRef}
                 onAddMessage={(message) => activeChat && addMessageToChat(activeChat, message)}
+                activeChat={activeChat} // Pass the active chat ID
               />
             </main>
 

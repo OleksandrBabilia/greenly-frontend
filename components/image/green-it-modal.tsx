@@ -15,9 +15,11 @@ interface GreenItModalProps {
   originalImage: string | null
   currentImage: string
   onSubmit: (positivePrompt: string, negativePrompt: string) => Promise<void>
+  imageName?: string
+  chatId?: string
 }
 
-export function GreenItModal({ isOpen, onClose, originalImage, currentImage, onSubmit }: GreenItModalProps) {
+export function GreenItModal({ isOpen, onClose, originalImage, currentImage, chatId, imageName, onSubmit }: GreenItModalProps) {
   const [positivePrompt, setPositivePrompt] = useState("")
   const [negativePrompt, setNegativePrompt] = useState("")
   const [step, setStep] = useState<"positive" | "negative" | "processing">("positive")

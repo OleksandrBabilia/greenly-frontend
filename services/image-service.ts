@@ -2,12 +2,15 @@
  * Service for handling image processing and transformations
  */
 
+import { convertToNipIo } from "@/utils/nip-io";
+import { getApiUrl } from "@/utils/api-config"
 // Function to send a Green It request to the server
 export async function sendGreenItRequest(
     originalImage: string | null,
     currentImage: string,
     positivePrompt: string,
     negativePrompt: string,
+    chatId?: string,
     imageName?: string,
     userId?: string,
   ): Promise<{ success: boolean; processedImage?: string; processedImageName?: string; error?: string }> {
@@ -18,12 +21,17 @@ export async function sendGreenItRequest(
         current_image: currentImage,
         positive_prompt: positivePrompt,
         negative_prompt: negativePrompt,
+        chat_id: chatId,
         image_name: imageName,
         user_id: userId,
       }
-  
+      console.log("Sending Green It request with the following data:", requestBody)
+ 
       // Send the request to the server
-      const response = await fetch("/api/image/green-it", {
+
+    // Debug log
+      const chatUrl = convertToNipIo(getApiUrl("inplant/"))
+      const response = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
