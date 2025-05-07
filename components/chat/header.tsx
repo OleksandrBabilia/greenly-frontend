@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { Button } from "@/components/ui/button"
 import { Menu, Plus } from "lucide-react"
 import { AuthButton } from "@/components/auth/auth-button"
@@ -9,9 +11,10 @@ interface ChatHeaderProps {
   isInitialMode: boolean
   setSidebarOpen: (open: boolean) => void
   createNewChat: () => void
+  children?: React.ReactNode
 }
 
-export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat }: ChatHeaderProps) {
+export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat, children }: ChatHeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-green-100 bg-white">
       <div className="flex items-center justify-between h-16 px-4">
@@ -34,6 +37,7 @@ export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat
               <Plus className="w-4 h-4" />
             </Button>
           )}
+          {children}
           <AuthButton />
         </div>
       </div>

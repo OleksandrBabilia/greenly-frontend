@@ -2,8 +2,7 @@
 
 import type React from "react"
 
-import { useEffect, useRef } from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useChatService } from "@/hooks/use-chat-service"
 import { useImageHandler } from "@/hooks/use-image-handler"
 import { Sidebar } from "@/components/ui/sidebar"
@@ -15,11 +14,28 @@ import { ErrorBanner } from "@/components/chat/error-banner"
 import { useAuth } from "@/contexts/auth-context"
 import { ChatHeaderImage } from "@/components/chat/chat-header-image"
 import { Toaster } from "@/components/ui/toaster"
+import { SelectionProvider, useSelection } from "@/contexts/selection-context"
+import { SelectionToolbar } from "@/components/report/selection-toolbar"
+import { ResourceModal } from "@/components/report/resource-modal"
+import { PdfReport } from "@/components/report/pdf-report"
+import { getPricingSchema } from "@/services/report-service"
+import { Button } from "@/components/ui/button"
+import { CheckSquare } from "lucide-react"
 
-export default function ChatPage() {
+function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
+  const [resourceModalOpen, setResourceModalOpen] = useState(false)
+  // Update the reportState type to include simplePricing
+  const [reportState, setReportState] = useState<{
+    isOpen: boolean
+    pricingSchema: any
+    resourceName: string
+    resourceDescription: string
+    simplePricing?: string
+  } | null>(null)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
   const {
     chats,
@@ -52,6 +68,8 @@ export default function ChatPage() {
     removeSelectedImage,
     resetImageInputs,
   } = useImageHandler()
+
+  const { isSelectionMode, toggleSelectionMode, selectedItems } = useSelection()
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -186,6 +204,67 @@ export default function ChatPage() {
     deleteChat(chatId)
   }
 
+  // Handle generate report button click
+  const handleGenerateReport = () => {
+    if (selectedItems.length === 0) return
+    setResourceModalOpen(true)
+  }
+
+  // Handle resource modal submit
+  const handleResourceSubmit = async (resourceName: string, resourceDescription: string) => {
+    try {
+      setIsGeneratingReport(true)
+
+      // Get the original image from the current chat
+      const currentChat = getCurrentChat()
+      const originalImage = currentChat?.mainImage || selectedItems.find((item) => item.image)?.image || ""
+
+      // Get pricing schema from server
+      const pricingResponse = await getPricingSchema({
+        originalImage,
+        resourceName,
+        resourceDescription,
+        userId: user?.id,
+      })
+
+      // Ensure we have a valid pricing schema, even if the request fails
+      const pricingSchema = pricingResponse.success
+        ? pricingResponse.pricingSchema
+        : {
+            basePrice: 299.99,
+            additionalCosts: [
+              {
+                name: "Default service",
+                price: 49.99,
+                description: "Standard service fee",
+              },
+            ],
+            totalPrice: 349.98,
+            currency: "USD",
+            notes: "This is a default pricing schema as we couldn't fetch the actual data.",
+            estimatedTimeframe: "2-3 weeks",
+          }
+
+      // Open the PDF report
+      setReportState({
+        isOpen: true,
+        pricingSchema,
+        resourceName,
+        resourceDescription,
+        simplePricing: pricingResponse.simplePricing,
+      })
+    } catch (error) {
+      console.error("Error generating report:", error)
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
+  // Toggle selection mode
+  const handleToggleSelectionMode = () => {
+    toggleSelectionMode()
+  }
+
   return (
     <div className="flex h-screen bg-white">
       {/* Sidebar */}
@@ -208,7 +287,19 @@ export default function ChatPage() {
           isInitialMode={isInitialMode}
           setSidebarOpen={setSidebarOpen}
           createNewChat={() => createNewChat()}
-        />
+        >
+          {!isInitialMode && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleToggleSelectionMode}
+              className={`ml-2 ${isSelectionMode ? "bg-green-50 text-green-700 border-green-200" : ""}`}
+            >
+              <CheckSquare className="w-4 h-4 mr-2" />
+              {isSelectionMode ? "Cancel Selection" : "Select Items"}
+            </Button>
+          )}
+        </ChatHeader>
 
         {/* Error Banner */}
         <ErrorBanner error={error} />
@@ -243,6 +334,9 @@ export default function ChatPage() {
               />
             </main>
 
+            {/* Selection Toolbar */}
+            <SelectionToolbar onGenerateReport={handleGenerateReport} />
+
             {/* Chat Input */}
             <ChatInput
               onSubmit={handleChatSubmit}
@@ -256,8 +350,37 @@ export default function ChatPage() {
         )}
       </div>
 
+      {/* Resource Modal */}
+      {resourceModalOpen && (
+        <ResourceModal
+          isOpen={resourceModalOpen}
+          onClose={() => setResourceModalOpen(false)}
+          onSubmit={handleResourceSubmit}
+        />
+      )}
+
+      {/* PDF Report */}
+      {reportState && (
+        <PdfReport
+          selectedItems={selectedItems}
+          pricingSchema={reportState.pricingSchema}
+          resourceName={reportState.resourceName}
+          resourceDescription={reportState.resourceDescription}
+          simplePricing={reportState.simplePricing}
+          onClose={() => setReportState(null)}
+        />
+      )}
+
       {/* Toast notifications */}
       <Toaster />
     </div>
+  )
+}
+
+export default function Page() {
+  return (
+    <SelectionProvider>
+      <ChatPage />
+    </SelectionProvider>
   )
 }

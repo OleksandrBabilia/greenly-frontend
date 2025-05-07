@@ -1,9 +1,10 @@
 import { streamText } from "ai"
 import { openai } from "@ai-sdk/openai"
+import { getCachedChat, setCachedChat, invalidateChatCache, invalidateUserChatsCache } from "@/lib/redis-cache"
 
 export async function POST(req: Request) {
   try {
-    const { messages, image, chatId, user_id, object_name, chat_history } = await req.json()
+    const { messages, image, chat_id, user_id, object_name, chat_history } = await req.json()
 
     console.log(`Processing chat request${user_id ? ` for user: ${user_id}` : " (anonymous)"}`)
     console.log(`Object name: ${object_name || "Not provided"}`)
@@ -42,18 +43,28 @@ export async function POST(req: Request) {
       messages: formattedMessages,
     })
 
-    // In a real implementation, you would check if the model wants to generate an image
-    // and then call an image generation API like DALL-E
-    // const shouldGenerateImage = checkIfShouldGenerateImage(messages);
-    // let generatedImageUrl = null;
-    // if (shouldGenerateImage) {
-    //   generatedImageUrl = await generateImage(prompt);
-    // }
+    // Create a response object to collect the full text
+    let responseText = ""
 
-    // You would then need to modify the response to include the image URL
-    // This is just a placeholder for the actual implementation
+    // Process the stream to collect the full text
+    result.onTextContent((content) => {
+      responseText = content
+    })
 
-    return result.toDataStreamResponse()
+    // Wait for the stream to complete
+    const response = await result.toDataStreamResponse()
+
+    // If we have a user ID and chat ID, invalidate the chat cache
+    // since the chat has been updated
+    if (user_id && chat_id) {
+      // Invalidate the chat cache
+      await invalidateChatCache(chat_id)
+
+      // Invalidate the user's chat list cache
+      await invalidateUserChatsCache(user_id)
+    }
+
+    return response
   } catch (error) {
     console.error("Error in chat API:", error)
     return new Response(JSON.stringify({ error: "Failed to process chat request" }), {
@@ -65,10 +76,9 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    // Extract chat ID and user ID from the URL
+    // Extract chat ID from the URL
     const url = new URL(req.url)
     const chatId = url.pathname.split("/").pop()
-    const userId = url.searchParams.get("userId")
 
     if (!chatId) {
       return new Response(JSON.stringify({ error: "Chat ID is required" }), {
@@ -77,50 +87,54 @@ export async function GET(req: Request) {
       })
     }
 
-    console.log(`Fetching chat history for chat: ${chatId}${userId ? `, user: ${userId}` : " (anonymous)"}`)
+    console.log(`Fetching chat with ID: ${chatId}`)
 
-    // In a real implementation, you would fetch chat history from your database
-    // based on the chat ID and user ID
+    // Try to get from cache first
+    const cachedChat = await getCachedChat(chatId)
 
-    // For demo purposes, return an empty array or mock data
-    // If userId is provided, we can return mock chat history
-    let messages = []
+    if (cachedChat) {
+      console.log("Cache hit: Returning cached chat")
+      return new Response(JSON.stringify(cachedChat), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
-    if (userId) {
-      // Mock chat history for authenticated users
-      messages = [
+    console.log("Cache miss: Fetching chat from backend")
+
+    // If not in cache, fetch from your backend API
+    // In a real implementation, you would call your backend API here
+    // const backendResponse = await fetch(`${process.env.BACKEND_API_URL}/chats/${chatId}`);
+    // if (!backendResponse.ok) {
+    //   throw new Error(`Backend API returned ${backendResponse.status}`);
+    // }
+    // const chatData = await backendResponse.json();
+
+    // For demo purposes, we'll simulate a backend response
+    // In a real app, you would use the actual backend response
+    const mockChatData = {
+      id: chatId,
+      title: "Mock Chat",
+      createdAt: new Date().toISOString(),
+      messages: [
         {
-          chat_id: chatId,
           role: "assistant",
           content: "Hello! I'm Greenly, your eco-friendly AI assistant. How can I help you today?",
           timestamp: new Date().toISOString(),
         },
-        {
-          chat_id: chatId,
-          role: "user",
-          content: "I'd like to learn about sustainable gardening.",
-          timestamp: new Date(Date.now() - 60000).toISOString(),
-        },
-        {
-          chat_id: chatId,
-          role: "assistant",
-          content:
-            "Great choice! Sustainable gardening is an eco-friendly approach that minimizes environmental impact while maximizing garden productivity. Would you like to know about composting, water conservation, or native plants?",
-          timestamp: new Date(Date.now() - 30000).toISOString(),
-          // Example of including an image response
-          image:
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YwZjlmMCIvPjxjaXJjbGUgY3g9IjIwMCIgY3k9IjE1MCIgcj0iODAiIGZpbGw9IiM0YWRlODAiLz48cGF0aCBkPSJNMTYwIDEyMEMyMDAgODAgMjQwIDEyMCAyNDAgMTIwQzI0MCAxMjAgMjgwIDE2MCAyNDAgMjAwQzIwMCAyNDAgMTYwIDIwMCAxNjAgMjAwQzE2MCAyMDAgMTIwIDE2MCAxNjAgMTIwWiIgZmlsbD0iIzIyYzU1ZSIvPjxwYXRoIGQ9Ik0yMDAgNzBMMjEwIDkwTDIzMCA5MEwyMTUgMTA1TDIyMCAxMjVMMjAwIDExNUwxODAgMTI1TDE4NSAxMDVMMTcwIDkwTDE5MCA5MFoiIGZpbGw9IiMxNmEzNGEiLz48L3N2Zz4=",
-        },
-      ]
+      ],
     }
 
-    return new Response(JSON.stringify(messages), {
+    // Cache the result for future requests
+    await setCachedChat(chatId, mockChatData)
+
+    return new Response(JSON.stringify(mockChatData), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     })
   } catch (error) {
-    console.error("Error fetching chat history:", error)
-    return new Response(JSON.stringify({ error: "Failed to fetch chat history" }), {
+    console.error("Error fetching chat:", error)
+    return new Response(JSON.stringify({ error: "Failed to fetch chat" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     })
