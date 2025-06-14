@@ -21,13 +21,16 @@ import { PdfReport } from "@/components/report/pdf-report"
 import { getPricingSchema } from "@/services/report-service"
 import { Button } from "@/components/ui/button"
 import { CheckSquare } from "lucide-react"
+import { useSubscription } from "@/contexts/subscription-context"
+import { useSearchParams } from "next/navigation"
 
 function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated, user } = useAuth()
+  const { openPremiumModal } = useSubscription()
+  const searchParams = useSearchParams()
   const [resourceModalOpen, setResourceModalOpen] = useState(false)
-  // Update the reportState type to include simplePricing
   const [reportState, setReportState] = useState<{
     isOpen: boolean
     pricingSchema: any
@@ -70,6 +73,14 @@ function ChatPage() {
   } = useImageHandler()
 
   const { isSelectionMode, toggleSelectionMode, selectedItems } = useSelection()
+
+  // Check for upgrade parameter in URL
+  useEffect(() => {
+    const upgrade = searchParams.get("upgrade")
+    if (upgrade === "true") {
+      openPremiumModal()
+    }
+  }, [searchParams, openPremiumModal])
 
   // Scroll to bottom when messages change
   useEffect(() => {

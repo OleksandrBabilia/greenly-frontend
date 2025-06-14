@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       const nipIoOrigin = `http://${ip}.nip.io${port ? `:${port}` : ""}`
       redirectUri = `${nipIoOrigin}/api/auth/callback/google`
     }
-    redirectUri = "http://192.168.0.100.nip.io:3000/api/auth/callback/google"
+    redirectUri = "http://192.168.0.103.nip.io:3000/api/auth/callback/google"
     // Exchange the authorization code for tokens
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     const tokenData = await tokenResponse.json()
 
     // Set cookies with the tokens
-    const response = NextResponse.redirect(new URL("http://192.168.0.100.nip.io:3000/"))
+    const response = NextResponse.redirect(new URL("http://192.168.0.103.nip.io:3000/"))
 
     // Set secure HTTP-only cookies
     response.cookies.set(ACCESS_TOKEN_COOKIE, tokenData.access_token, {

@@ -5,6 +5,9 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Menu, Plus } from "lucide-react"
 import { AuthButton } from "@/components/auth/auth-button"
+import { SubscriptionBadge } from "@/components/subscription/subscription-badge"
+import { PremiumSubscription } from "@/components/subscription/premium-subscription"
+import { useSubscription } from "@/contexts/subscription-context"
 
 interface ChatHeaderProps {
   title: string
@@ -15,6 +18,8 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat, children }: ChatHeaderProps) {
+  const { isPremiumModalOpen, closePremiumModal } = useSubscription()
+
   return (
     <header className="sticky top-0 z-10 border-b border-green-100 bg-white">
       <div className="flex items-center justify-between h-16 px-4">
@@ -27,6 +32,8 @@ export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat
         </div>
 
         <div className="flex items-center gap-2">
+          <SubscriptionBadge showUpgradeButton={true} />
+
           {!isInitialMode && (
             <Button
               variant="outline"
@@ -41,6 +48,9 @@ export function ChatHeader({ title, isInitialMode, setSidebarOpen, createNewChat
           <AuthButton />
         </div>
       </div>
+
+      {/* Premium Subscription Modal */}
+      <PremiumSubscription isOpen={isPremiumModalOpen} onClose={closePremiumModal} />
     </header>
   )
 }
