@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { ChevronLeft, ChevronRight, MoveHorizontal, SplitSquareVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,17 +20,15 @@ export function ImageComparison({ originalImage, processedImage, onClose }: Imag
   const [mode, setMode] = useState<ComparisonMode>("side-by-side")
   const [sliderPosition, setSliderPosition] = useState(50)
   const [showOriginal, setShowOriginal] = useState(true)
+  const [isDragging, setIsDragging] = useState(false)
   const sliderContainerRef = useRef<HTMLDivElement>(null)
 
-  // Handle slider movement
-  const handleSliderMove = (e: React.MouseEvent | React.TouchEvent) => {
+  // Handle slider movement with improved logic
+  const updateSliderPosition = useCallback((clientX: number) => {
     if (!sliderContainerRef.current) return
 
     const containerRect = sliderContainerRef.current.getBoundingClientRect()
     const containerWidth = containerRect.width
-
-    // Get clientX based on whether it's a mouse or touch event
-    const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
 
     // Calculate position relative to the container
     const position = ((clientX - containerRect.left) / containerWidth) * 100
@@ -38,43 +36,67 @@ export function ImageComparison({ originalImage, processedImage, onClose }: Imag
     // Clamp position between 0 and 100
     const clampedPosition = Math.max(0, Math.min(100, position))
     setSliderPosition(clampedPosition)
-  }
+  }, [])
 
-  // Set up event listeners for slider dragging
-  useEffect(() => {
-    if (mode !== "slider") return
-
-    const handleMouseMove = (e: MouseEvent) => {
+  // Mouse event handlers
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
       e.preventDefault()
-      handleSliderMove(e as unknown as React.MouseEvent)
-    }
+      setIsDragging(true)
+      updateSliderPosition(e.clientX)
+    },
+    [updateSliderPosition],
+  )
 
-    const handleMouseUp = () => {
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return
+      e.preventDefault()
+      updateSliderPosition(e.clientX)
+    },
+    [isDragging, updateSliderPosition],
+  )
 
-    const handleTouchMove = (e: TouchEvent) => {
-      handleSliderMove(e as unknown as React.TouchEvent)
-    }
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
 
-    const handleTouchEnd = () => {
-      document.removeEventListener("touchmove", handleTouchMove)
-      document.removeEventListener("touchend", handleTouchEnd)
-    }
+  // Touch event handlers
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      setIsDragging(true)
+      const touch = e.touches[0]
+      updateSliderPosition(touch.clientX)
+    },
+    [updateSliderPosition],
+  )
 
-    const sliderContainer = sliderContainerRef.current
-    if (sliderContainer) {
-      sliderContainer.addEventListener("mousedown", (e) => {
-        e.preventDefault()
-        document.addEventListener("mousemove", handleMouseMove)
-        document.addEventListener("mouseup", handleMouseUp)
-      })
+  const handleTouchMove = useCallback(
+    (e: TouchEvent) => {
+      if (!isDragging) return
+      e.preventDefault()
+      const touch = e.touches[0]
+      updateSliderPosition(touch.clientX)
+    },
+    [isDragging, updateSliderPosition],
+  )
 
-      sliderContainer.addEventListener("touchstart", () => {
-        document.addEventListener("touchmove", handleTouchMove)
-        document.addEventListener("touchend", handleTouchEnd)
-      })
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Set up global event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove)
+      document.addEventListener("mouseup", handleMouseUp)
+      document.addEventListener("touchmove", handleTouchMove, { passive: false })
+      document.addEventListener("touchend", handleTouchEnd)
+
+      // Prevent text selection while dragging
+      document.body.style.userSelect = "none"
+      document.body.style.webkitUserSelect = "none"
     }
 
     return () => {
@@ -82,6 +104,17 @@ export function ImageComparison({ originalImage, processedImage, onClose }: Imag
       document.removeEventListener("mouseup", handleMouseUp)
       document.removeEventListener("touchmove", handleTouchMove)
       document.removeEventListener("touchend", handleTouchEnd)
+
+      // Restore text selection
+      document.body.style.userSelect = ""
+      document.body.style.webkitUserSelect = ""
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp, handleTouchMove, handleTouchEnd])
+
+  // Reset slider position when mode changes
+  useEffect(() => {
+    if (mode === "slider") {
+      setSliderPosition(50)
     }
   }, [mode])
 
@@ -156,43 +189,60 @@ export function ImageComparison({ originalImage, processedImage, onClose }: Imag
           )}
 
           {mode === "slider" && (
-            <div className="relative h-[400px] md:h-[600px]" ref={sliderContainerRef}>
+            <div
+              className="relative h-[400px] md:h-[600px] cursor-ew-resize select-none overflow-hidden rounded-lg"
+              ref={sliderContainerRef}
+              onMouseDown={handleMouseDown}
+              onTouchStart={handleTouchStart}
+            >
               {/* Processed image (background) */}
               <div className="absolute inset-0">
                 <Image
                   src={processedImage || "/placeholder.svg"}
                   alt="Processed image"
                   fill
-                  className="object-contain"
+                  className="object-contain pointer-events-none"
+                  draggable={false}
                 />
               </div>
 
               {/* Original image (foreground with clip) */}
-              <div className="absolute inset-0 overflow-hidden" style={{ width: `${sliderPosition}%` }}>
-                <div className="relative h-full w-full">
-                  <Image
-                    src={originalImage || "/placeholder.svg"}
-                    alt="Original image"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{
+                  clipPath: `inset(0 ${100 - sliderPosition}% 0 0)`,
+                }}
+              >
+                <Image
+                  src={originalImage || "/placeholder.svg"}
+                  alt="Original image"
+                  fill
+                  className="object-contain pointer-events-none"
+                  draggable={false}
+                />
               </div>
 
               {/* Slider handle */}
               <div
-                className="absolute top-0 bottom-0 w-1 bg-white cursor-ew-resize"
-                style={{ left: `${sliderPosition}%` }}
+                className="absolute top-0 bottom-0 w-1 bg-white shadow-lg cursor-ew-resize z-10"
+                style={{ left: `${sliderPosition}%`, transform: "translateX(-50%)" }}
               >
-                <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center">
-                  <MoveHorizontal className="w-5 h-5 text-gray-700" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center border-2 border-gray-200">
+                  <MoveHorizontal className="w-4 h-4 text-gray-700" />
                 </div>
               </div>
 
               {/* Labels */}
-              <div className="absolute top-2 left-2 bg-gray-100 p-1 px-2 rounded text-xs font-medium">Original</div>
-              <div className="absolute top-2 right-2 bg-green-100 p-1 px-2 rounded text-xs font-medium text-green-800">
+              <div className="absolute top-2 left-2 bg-gray-900/75 text-white p-1 px-2 rounded text-xs font-medium pointer-events-none">
+                Original
+              </div>
+              <div className="absolute top-2 right-2 bg-green-600/75 text-white p-1 px-2 rounded text-xs font-medium pointer-events-none">
                 Processed
+              </div>
+
+              {/* Position indicator */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/50 text-white px-2 py-1 rounded text-xs font-medium pointer-events-none">
+                {Math.round(sliderPosition)}%
               </div>
             </div>
           )}
