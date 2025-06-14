@@ -17,23 +17,41 @@ const html2canvas = dynamic(() => import("html2canvas"), {
   ssr: false,
 })
 
+interface GreeningElement {
+  id: string
+  name: string
+  unit: string
+  quantity: number
+  pricePerUnit: number
+  total: number
+  isCustom: boolean
+}
+
+interface PdfReportProps {
+  selectedItems: any[]
+  pricingElements: GreeningElement[]
+  totalPrice: number
+  resourceName: string
+  resourceDescription: string
+  onClose: () => void
+  simplePricing?: string
+}
+
 // PDF Report component with client-side PDF generation
-export function PdfReport({ selectedItems, pricingSchema, resourceName, resourceDescription, onClose, simplePricing }) {
+export function PdfReport({
+  selectedItems,
+  pricingElements,
+  totalPrice,
+  resourceName,
+  resourceDescription,
+  onClose,
+  simplePricing,
+}: PdfReportProps) {
   const { toast } = useToast()
   const [isGenerating, setIsGenerating] = useState(false)
   const [pdfGenerated, setPdfGenerated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
-
-  // Ensure pricing schema has all required properties with default values
-  const pricingData = {
-    basePrice: pricingSchema?.basePrice || 0,
-    additionalCosts: pricingSchema?.additionalCosts || [],
-    totalPrice: pricingSchema?.totalPrice || 0,
-    currency: pricingSchema?.currency || "USD",
-    notes: pricingSchema?.notes || "No additional notes.",
-    estimatedTimeframe: pricingSchema?.estimatedTimeframe || "Not specified",
-  }
 
   // Generate PDF using jsPDF and html2canvas
   const handleGeneratePdf = async () => {
@@ -59,17 +77,21 @@ export function PdfReport({ selectedItems, pricingSchema, resourceName, resource
 
       // Use html2canvas to capture the report as an image
       const canvas = await html2canvasFunc(reportRef.current, {
-        scale: 2, // Higher scale for better quality
+        scale: 1.5, // Slightly lower scale for better performance with images
         useCORS: true, // Enable CORS for images
         allowTaint: true, // Allow tainted canvas if CORS fails
         logging: false,
         backgroundColor: "#ffffff",
-        imageTimeout: 15000, // Longer timeout for images
+        imageTimeout: 20000, // Longer timeout for multiple images
+        removeContainer: true, // Clean up after rendering
+        foreignObjectRendering: false, // Better compatibility with images
         onclone: (clonedDoc) => {
           // Find all images in the cloned document and set crossOrigin
           const images = clonedDoc.getElementsByTagName("img")
           for (let i = 0; i < images.length; i++) {
             images[i].crossOrigin = "anonymous"
+            // Add loading attribute for better performance
+            images[i].loading = "eager"
           }
           return clonedDoc
         },
@@ -128,9 +150,12 @@ export function PdfReport({ selectedItems, pricingSchema, resourceName, resource
         pdf.setFontSize(12)
         pdf.text(`Resource: ${resourceName}`, 20, 30)
         pdf.text(`Generated on: ${format(new Date(), "MMMM d, yyyy")}`, 20, 40)
-        pdf.text(`Total Price: $${pricingData.totalPrice.toFixed(2)} ${pricingData.currency}`, 20, 50)
-        pdf.text(`Simple Pricing: ${simplePricing || "Not available"}`, 20, 60)
-        pdf.text("Note: This is a simplified report due to rendering issues.", 20, 70)
+        pdf.text(`Total Price: $${totalPrice.toFixed(2)}`, 20, 50)
+        pdf.text(`Elements: ${pricingElements.length} items`, 20, 60)
+        pdf.text(`Selected Content: ${selectedItems.length} items`, 20, 70)
+        pdf.text(`- Images: ${selectedItems.filter((i) => i.type === "image").length}`, 20, 80)
+        pdf.text(`- Messages: ${selectedItems.filter((i) => i.type === "message").length}`, 20, 90)
+        pdf.text("Note: This is a simplified report due to rendering issues.", 20, 100)
 
         pdf.save(`greening-report-${format(new Date(), "yyyyMMdd")}.pdf`)
 
@@ -183,117 +208,183 @@ export function PdfReport({ selectedItems, pricingSchema, resourceName, resource
               </div>
             </div>
 
-            {/* Simple Pricing from API */}
+            {/* Greening Elements Breakdown */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-green-700 mb-3 pb-1 border-b border-gray-200">
-                Simple Pricing
-              </h3>
-              <div className="bg-blue-50 p-4 rounded-md">
-                <p className="font-medium text-blue-800 text-xl">
-                  {simplePricing || "Pricing information not available"}
-                </p>
-                <p className="text-gray-600 mt-2 text-sm">
-                  This pricing information was fetched directly from the pricing API.
-                </p>
-              </div>
-            </div>
-
-            {/* Selected Items Summary */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-green-700 mb-3 pb-1 border-b border-gray-200">
-                Selected Content
+                Greening Elements Breakdown
               </h3>
 
-              <div className="flex flex-wrap gap-3 mb-4">
-                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {selectedItems.filter((item) => item.type === "image").length} Images
-                </div>
-                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                  {selectedItems.filter((item) => item.type === "message").length} Messages
-                </div>
-              </div>
-
-              {/* Preview of selected items - show ALL selected items */}
-              <div className="space-y-4">
-                {selectedItems.map((item, index) => (
-                  <div key={index} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-                      <span className="font-medium">{item.type === "image" ? "Image" : "Message"}</span>
-                      <span>•</span>
-                      <span>{format(new Date(item.timestamp), "MMM d, h:mm a")}</span>
-                    </div>
-
-                    {item.type === "message" && (
-                      <div className="bg-white p-3 rounded border border-gray-100">
-                        <p className="text-gray-700 whitespace-pre-wrap">{item.content}</p>
-                      </div>
-                    )}
-
-                    {item.type === "image" && item.image && (
-                      <div className="mt-2">
-                        <img
-                          src={item.image || "/placeholder.svg"}
-                          alt="Selected content"
-                          className="max-h-64 max-w-full object-contain border border-gray-200 rounded bg-white p-1"
-                          crossOrigin="anonymous"
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Pricing Information */}
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-green-700 mb-3 pb-1 border-b border-gray-200">
-                Detailed Pricing Information
-              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-green-50">
-                      <th className="text-left p-3 border border-gray-200 font-medium">Item</th>
-                      <th className="text-left p-3 border border-gray-200 font-medium">Description</th>
-                      <th className="text-right p-3 border border-gray-200 font-medium">Price</th>
+                      <th className="text-left p-3 border border-gray-200 font-medium">Element</th>
+                      <th className="text-center p-3 border border-gray-200 font-medium">Quantity</th>
+                      <th className="text-center p-3 border border-gray-200 font-medium">Unit</th>
+                      <th className="text-right p-3 border border-gray-200 font-medium">Price per Unit</th>
+                      <th className="text-right p-3 border border-gray-200 font-medium">Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="p-3 border border-gray-200">Base Greening Service</td>
-                      <td className="p-3 border border-gray-200">Standard eco-transformation</td>
-                      <td className="text-right p-3 border border-gray-200 font-medium">
-                        ${pricingData.basePrice.toFixed(2)} {pricingData.currency}
-                      </td>
-                    </tr>
-                    {pricingData.additionalCosts.map((cost, index) => (
-                      <tr key={index}>
-                        <td className="p-3 border border-gray-200">{cost.name}</td>
-                        <td className="p-3 border border-gray-200">{cost.description}</td>
+                    {pricingElements.map((element, index) => (
+                      <tr key={element.id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                        <td className="p-3 border border-gray-200">
+                          <div className="flex items-center gap-2">
+                            {element.name}
+                            {element.isCustom && (
+                              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Custom</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-center p-3 border border-gray-200 font-medium">{element.quantity}</td>
+                        <td className="text-center p-3 border border-gray-200">{element.unit}</td>
+                        <td className="text-right p-3 border border-gray-200">${element.pricePerUnit.toFixed(2)}</td>
                         <td className="text-right p-3 border border-gray-200 font-medium">
-                          ${cost.price.toFixed(2)} {pricingData.currency}
+                          ${element.total.toFixed(2)}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-green-50">
-                      <td colSpan={2} className="p-3 border border-gray-200 font-bold">
-                        Total
+                    <tr className="bg-green-100">
+                      <td colSpan={4} className="p-3 border border-gray-200 font-bold text-green-800">
+                        Total Project Cost
                       </td>
-                      <td className="text-right p-3 border border-gray-200 font-bold">
-                        ${pricingData.totalPrice.toFixed(2)} {pricingData.currency}
+                      <td className="text-right p-3 border border-gray-200 font-bold text-green-800 text-lg">
+                        ${totalPrice.toFixed(2)}
                       </td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
 
-              <div className="mt-4 space-y-2">
-                <p className="text-sm">
-                  <span className="font-medium">Estimated Timeframe:</span> {pricingData.estimatedTimeframe}
+              {/* Summary Statistics */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-md text-center">
+                  <div className="text-2xl font-bold text-blue-600">{pricingElements.length}</div>
+                  <div className="text-sm text-blue-800">Total Elements</div>
+                </div>
+                <div className="bg-green-50 p-4 rounded-md text-center">
+                  <div className="text-2xl font-bold text-green-600">
+                    {pricingElements.filter((e) => e.isCustom).length}
+                  </div>
+                  <div className="text-sm text-green-800">Custom Elements</div>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-md text-center">
+                  <div className="text-2xl font-bold text-yellow-600">
+                    ${(totalPrice / pricingElements.reduce((sum, e) => sum + e.quantity, 0) || 0).toFixed(2)}
+                  </div>
+                  <div className="text-sm text-yellow-800">Avg Cost per Unit</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Simple Pricing from API */}
+            {simplePricing && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-green-700 mb-3 pb-1 border-b border-gray-200">
+                  API Pricing Reference
+                </h3>
+                <div className="bg-blue-50 p-4 rounded-md">
+                  <p className="font-medium text-blue-800 text-xl">{simplePricing}</p>
+                  <p className="text-gray-600 mt-2 text-sm">
+                    This pricing information was fetched from the external pricing API for reference.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Selected Content Details */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-green-700 mb-3 pb-1 border-b border-gray-200">
+                Selected Content Details
+              </h3>
+
+              <div className="flex flex-wrap gap-3 mb-6">
+                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {selectedItems.filter((item) => item.type === "image").length} Images
+                </div>
+                <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {selectedItems.filter((item) => item.type === "message").length} Messages
+                </div>
+                <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {selectedItems.length} Total Items
+                </div>
+              </div>
+
+              {/* Display all selected items */}
+              <div className="space-y-6">
+                {selectedItems.map((item, index) => (
+                  <div
+                    key={`${item.id}-${index}`}
+                    className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden"
+                  >
+                    {/* Item Header */}
+                    <div className="bg-white px-4 py-3 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-3 h-3 rounded-full ${item.type === "image" ? "bg-blue-500" : "bg-green-500"}`}
+                          ></div>
+                          <span className="font-medium text-gray-800 capitalize">
+                            {item.type === "image" ? "Image Content" : "Message Content"}
+                          </span>
+                          <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">#{index + 1}</span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {format(new Date(item.timestamp), "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Item Content */}
+                    <div className="p-4">
+                      {item.type === "message" && (
+                        <div className="bg-white p-4 rounded-md border border-gray-100">
+                          <div className="prose prose-sm max-w-none">
+                            <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.type === "image" && item.image && (
+                        <div className="space-y-3">
+                          {/* Image Display */}
+                          <div className="bg-white p-2 rounded-md border border-gray-100">
+                            <img
+                              src={item.image || "/placeholder.svg"}
+                              alt={`Selected content ${index + 1}`}
+                              className="max-h-80 max-w-full object-contain mx-auto rounded border border-gray-200"
+                              crossOrigin="anonymous"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.src = "/placeholder.svg?height=200&width=300"
+                              }}
+                            />
+                          </div>
+
+                          {/* Image Caption/Content */}
+                          {item.content && (
+                            <div className="bg-white p-3 rounded-md border border-gray-100">
+                              <p className="text-sm text-gray-600 font-medium mb-1">Associated Message:</p>
+                              <p className="text-gray-700 text-sm whitespace-pre-wrap">{item.content}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Content Summary */}
+              <div className="mt-6 bg-blue-50 p-4 rounded-md">
+                <h4 className="font-medium text-blue-800 mb-2">Content Summary</h4>
+                <p className="text-sm text-blue-700">
+                  This report includes {selectedItems.length} selected items from your conversation with Greenly. The
+                  content above represents the specific images and messages you chose to include in this greening
+                  project analysis, providing context for the pricing calculations and project scope.
                 </p>
-                <p className="text-sm text-gray-500 italic">{pricingData.notes}</p>
               </div>
             </div>
 
@@ -301,6 +392,10 @@ export function PdfReport({ selectedItems, pricingSchema, resourceName, resource
             <div className="mt-12 pt-4 border-t border-gray-200 text-center text-sm text-gray-500">
               <p>© {new Date().getFullYear()} Greenly - All rights reserved</p>
               <p className="mt-1">Creating eco-friendly solutions for a sustainable future</p>
+              <p className="mt-2 text-xs">
+                This report was generated using Greenly's AI-powered pricing calculator and includes customizable
+                greening elements with real-time cost calculations.
+              </p>
             </div>
           </div>
 

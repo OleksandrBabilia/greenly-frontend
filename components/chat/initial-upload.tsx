@@ -82,7 +82,8 @@ export function InitialUpload({
                   alt="Selected image"
                   width={400}
                   height={300}
-                  className="max-h-[400px] w-auto mx-auto rounded-md object-contain"
+                  className="max-h-[300px] w-auto mx-auto rounded-md object-contain"
+                  style={{ height: "300px" }} // Fixed height for consistency
                 />
                 <button
                   type="button"
@@ -96,7 +97,10 @@ export function InitialUpload({
                 </button>
               </div>
             ) : (
-              <div className="py-12">
+              <div
+                className="py-12"
+                style={{ height: "300px", display: "flex", flexDirection: "column", justifyContent: "center" }}
+              >
                 <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                 <p className="text-gray-500 mb-2">Drag and drop an image here, or click to select</p>
                 <p className="text-sm text-gray-400">Supports JPG, PNG, GIF</p>
@@ -113,7 +117,7 @@ export function InitialUpload({
               value={objectDescription}
               onChange={(e) => setObjectDescription(e.target.value)}
               placeholder="Describe the main object in this image..."
-              className="w-full min-h-[60px] border-green-200 focus-visible:ring-green-500"
+              className="w-full min-h-[80px] max-h-[120px] border-green-200 focus-visible:ring-green-500"
             />
           </div>
 
@@ -126,7 +130,8 @@ export function InitialUpload({
               value={initialPrompt}
               onChange={(e) => setInitialPrompt(e.target.value)}
               placeholder="Describe what you'd like to know about this image..."
-              className="w-full min-h-[100px] border-green-200 focus-visible:ring-green-500"
+              className="w-full border-green-200 focus-visible:ring-green-500"
+              style={{ height: "120px", minHeight: "120px", maxHeight: "120px" }} // Match proportional height
             />
           </div>
 

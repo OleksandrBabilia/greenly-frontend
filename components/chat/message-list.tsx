@@ -236,8 +236,8 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage,
           alt={alt}
           width={300}
           height={200}
-          className={`rounded-md max-w-full object-contain ${isSelectionMode ? "transition-opacity" : ""}`}
-          style={{ maxHeight: "300px" }}
+          className={`rounded-md w-full object-contain ${isSelectionMode ? "transition-opacity" : ""}`}
+          style={{ height: "200px", maxWidth: "300px" }} // Fixed consistent height
         />
 
         {/* Selection indicator */}
@@ -343,11 +343,22 @@ export function MessageList({ messages, isLoading, messagesEndRef, onAddMessage,
                   </div>
                 )}
 
-                {/* User uploaded image */}
-                {message.role === "user" && message.image && renderImage(message.image, "User uploaded image", index)}
+                {/* User uploaded image with consistent sizing */}
+                {message.role === "user" && message.image && (
+                  <div className="mb-3 relative">
+                    <Image
+                      src={message.image || "/placeholder.svg"}
+                      alt="User uploaded image"
+                      width={300}
+                      height={200}
+                      className="rounded-md w-full object-contain"
+                      style={{ height: "200px", maxWidth: "300px" }}
+                    />
+                  </div>
+                )}
 
-                {/* Message content */}
-                {message.content}
+                {/* Message content with consistent spacing */}
+                <div className={message.image ? "mt-3" : ""}>{message.content}</div>
 
                 {/* Display timestamp if available */}
                 {message.timestamp && (

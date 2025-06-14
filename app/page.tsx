@@ -17,12 +17,23 @@ import { Toaster } from "@/components/ui/toaster"
 import { SelectionProvider, useSelection } from "@/contexts/selection-context"
 import { SelectionToolbar } from "@/components/report/selection-toolbar"
 import { ResourceModal } from "@/components/report/resource-modal"
+import { PricingCalculatorModal } from "@/components/report/pricing-calculator-modal"
 import { PdfReport } from "@/components/report/pdf-report"
 import { getPricingSchema } from "@/services/report-service"
 import { Button } from "@/components/ui/button"
 import { CheckSquare } from "lucide-react"
 import { useSubscription } from "@/contexts/subscription-context"
 import { useSearchParams } from "next/navigation"
+
+interface GreeningElement {
+  id: string
+  name: string
+  unit: string
+  quantity: number
+  pricePerUnit: number
+  total: number
+  isCustom: boolean
+}
 
 function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -31,9 +42,15 @@ function ChatPage() {
   const { openPremiumModal } = useSubscription()
   const searchParams = useSearchParams()
   const [resourceModalOpen, setResourceModalOpen] = useState(false)
+  const [pricingCalculatorOpen, setPricingCalculatorOpen] = useState(false)
+  const [currentResourceInfo, setCurrentResourceInfo] = useState<{
+    name: string
+    description: string
+  } | null>(null)
   const [reportState, setReportState] = useState<{
     isOpen: boolean
-    pricingSchema: any
+    pricingElements: GreeningElement[]
+    totalPrice: number
     resourceName: string
     resourceDescription: string
     simplePricing?: string
@@ -223,47 +240,40 @@ function ChatPage() {
 
   // Handle resource modal submit
   const handleResourceSubmit = async (resourceName: string, resourceDescription: string) => {
+    setCurrentResourceInfo({ name: resourceName, description: resourceDescription })
+    setResourceModalOpen(false)
+    setPricingCalculatorOpen(true)
+  }
+
+  // Handle pricing calculator submit
+  const handlePricingSubmit = async (pricingElements: GreeningElement[], totalPrice: number) => {
+    if (!currentResourceInfo) return
+
     try {
       setIsGeneratingReport(true)
 
-      // Get the original image from the current chat
+      // Get simple pricing from API for reference
       const currentChat = getCurrentChat()
       const originalImage = currentChat?.mainImage || selectedItems.find((item) => item.image)?.image || ""
 
-      // Get pricing schema from server
       const pricingResponse = await getPricingSchema({
         originalImage,
-        resourceName,
-        resourceDescription,
+        resourceName: currentResourceInfo.name,
+        resourceDescription: currentResourceInfo.description,
         userId: user?.id,
       })
 
-      // Ensure we have a valid pricing schema, even if the request fails
-      const pricingSchema = pricingResponse.success
-        ? pricingResponse.pricingSchema
-        : {
-            basePrice: 299.99,
-            additionalCosts: [
-              {
-                name: "Default service",
-                price: 49.99,
-                description: "Standard service fee",
-              },
-            ],
-            totalPrice: 349.98,
-            currency: "USD",
-            notes: "This is a default pricing schema as we couldn't fetch the actual data.",
-            estimatedTimeframe: "2-3 weeks",
-          }
-
-      // Open the PDF report
+      // Open the PDF report with calculated pricing
       setReportState({
         isOpen: true,
-        pricingSchema,
-        resourceName,
-        resourceDescription,
+        pricingElements,
+        totalPrice,
+        resourceName: currentResourceInfo.name,
+        resourceDescription: currentResourceInfo.description,
         simplePricing: pricingResponse.simplePricing,
       })
+
+      setPricingCalculatorOpen(false)
     } catch (error) {
       console.error("Error generating report:", error)
     } finally {
@@ -370,11 +380,23 @@ function ChatPage() {
         />
       )}
 
+      {/* Pricing Calculator Modal */}
+      {pricingCalculatorOpen && currentResourceInfo && (
+        <PricingCalculatorModal
+          isOpen={pricingCalculatorOpen}
+          onClose={() => setPricingCalculatorOpen(false)}
+          onSubmit={handlePricingSubmit}
+          resourceName={currentResourceInfo.name}
+          resourceDescription={currentResourceInfo.description}
+        />
+      )}
+
       {/* PDF Report */}
       {reportState && (
         <PdfReport
           selectedItems={selectedItems}
-          pricingSchema={reportState.pricingSchema}
+          pricingElements={reportState.pricingElements}
+          totalPrice={reportState.totalPrice}
           resourceName={reportState.resourceName}
           resourceDescription={reportState.resourceDescription}
           simplePricing={reportState.simplePricing}
