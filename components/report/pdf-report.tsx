@@ -53,20 +53,15 @@ export function PdfReport({
   const [error, setError] = useState<string | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
 
-  // Generate PDF using jsPDF and html2canvas
+  // Generate PDF using jsPDF - create each page individually
   const handleGeneratePdf = async () => {
-    if (!reportRef.current) return
-
     try {
       setIsGenerating(true)
       setError(null)
 
       // Import the libraries dynamically at runtime
       const jsPDFModule = await import("jspdf")
-      const html2canvasModule = await import("html2canvas")
-
       const JsPDF = jsPDFModule.default
-      const html2canvasFunc = html2canvasModule.default
 
       // Create a new jsPDF instance
       const pdf = new JsPDF({
@@ -75,58 +70,331 @@ export function PdfReport({
         format: "a4",
       })
 
-      // Use html2canvas to capture the report as an image
-      const canvas = await html2canvasFunc(reportRef.current, {
-        scale: 1.5, // Slightly lower scale for better performance with images
-        useCORS: true, // Enable CORS for images
-        allowTaint: true, // Allow tainted canvas if CORS fails
-        logging: false,
-        backgroundColor: "#ffffff",
-        imageTimeout: 20000, // Longer timeout for multiple images
-        removeContainer: true, // Clean up after rendering
-        foreignObjectRendering: false, // Better compatibility with images
-        onclone: (clonedDoc) => {
-          // Find all images in the cloned document and set crossOrigin
-          const images = clonedDoc.getElementsByTagName("img")
-          for (let i = 0; i < images.length; i++) {
-            images[i].crossOrigin = "anonymous"
-            // Add loading attribute for better performance
-            images[i].loading = "eager"
-          }
-          return clonedDoc
-        },
-      })
-
-      // Make sure we have a valid canvas before proceeding
-      if (!canvas || typeof canvas.toDataURL !== "function") {
-        throw new Error("Failed to generate canvas from HTML")
-      }
-
-      // Add the captured image to the PDF
-      const imgData = canvas.toDataURL("image/jpeg", 1.0)
       const pdfWidth = pdf.internal.pageSize.getWidth()
       const pdfHeight = pdf.internal.pageSize.getHeight()
-      const imgWidth = canvas.width
-      const imgHeight = canvas.height
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
-      const imgX = (pdfWidth - imgWidth * ratio) / 2
-      const imgY = 10 // Top margin
+      const margin = 20
+      const maxWidth = pdfWidth - 2 * margin
 
-      pdf.addImage(imgData, "JPEG", imgX, imgY, imgWidth * ratio, imgHeight * ratio)
+      // Helper function to add header to each page
+      const addHeader = (pageTitle: string) => {
+        // Logo and title
+        pdf.setFillColor(34, 197, 94) // Green color
+        pdf.circle(25, 25, 5, "F")
+        pdf.setFontSize(18)
+        pdf.setTextColor(21, 128, 61) // Green text
+        pdf.text("Greenly", 35, 28)
 
-      // Add a footer
-      const footerText = `Generated on ${format(new Date(), "MMMM d, yyyy")} by Greenly`
+        // Page title
+        pdf.setFontSize(14)
+        pdf.setTextColor(0, 0, 0)
+        pdf.text(pageTitle, margin, 45)
+
+        // Date
+        pdf.setFontSize(10)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text(`Generated on ${format(new Date(), "MMMM d, yyyy")}`, pdfWidth - margin, 25, { align: "right" })
+
+        return 55 // Return Y position after header
+      }
+
+      // Helper function to add footer with page numbers
+      const addFooter = (pageNum: number, totalPages: number) => {
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text("© Greenly - Creating eco-friendly solutions", pdfWidth / 2, pdfHeight - 15, { align: "center" })
+        pdf.text(`Page ${pageNum} of ${totalPages}`, pdfWidth - margin, pdfHeight - 10, { align: "right" })
+      }
+
+      // Calculate total pages needed
+      const imageItems = selectedItems.filter((item) => item.type === "image" && item.image)
+      const messageItems = selectedItems.filter((item) => item.type === "message")
+      const estimatedImagePages = Math.ceil(imageItems.length / 2) // ~2 images per page
+      const estimatedMessagePages = Math.ceil(messageItems.length / 8) // ~8 messages per page
+      const totalPages =
+        1 +
+        (imageItems.length > 0 ? estimatedImagePages : 0) +
+        (messageItems.length > 0 ? estimatedMessagePages : 0) +
+        1
+
+      let pageNumber = 1
+
+      // PAGE 1: Project Overview and Resource Information
+      let currentY = addHeader("Project Report - Overview")
+
+      // Resource Information
+      pdf.setFontSize(12)
+      pdf.setTextColor(21, 128, 61)
+      pdf.text("Resource Information", margin, currentY)
+      currentY += 10
+
       pdf.setFontSize(10)
-      pdf.setTextColor(100, 100, 100)
-      pdf.text(footerText, pdfWidth / 2, pdfHeight - 10, { align: "center" })
+      pdf.setTextColor(0, 0, 0)
+      pdf.text(`Project: ${resourceName}`, margin, currentY)
+      currentY += 8
+
+      if (resourceDescription) {
+        const descLines = pdf.splitTextToSize(resourceDescription, maxWidth)
+        pdf.text(descLines, margin, currentY)
+        currentY += descLines.length * 5 + 10
+      }
+
+      // Content Summary
+      currentY += 10
+      pdf.setFontSize(12)
+      pdf.setTextColor(21, 128, 61)
+      pdf.text("Content Summary", margin, currentY)
+      currentY += 10
+
+      pdf.setFontSize(10)
+      pdf.setTextColor(0, 0, 0)
+      pdf.text(`Total Selected Items: ${selectedItems.length}`, margin, currentY)
+      currentY += 6
+      pdf.text(`Images: ${selectedItems.filter((i) => i.type === "image").length}`, margin, currentY)
+      currentY += 6
+      pdf.text(`Messages: ${selectedItems.filter((i) => i.type === "message").length}`, margin, currentY)
+      currentY += 6
+      pdf.text(`Greening Elements: ${pricingElements.length}`, margin, currentY)
+      currentY += 6
+      pdf.text(`Total Project Cost: $${totalPrice.toFixed(2)}`, margin, currentY)
+
+      // Project Summary Box
+      currentY += 15
+      pdf.setFillColor(240, 253, 244) // Light green background
+      pdf.rect(margin, currentY, maxWidth, 30, "F")
+      pdf.setDrawColor(34, 197, 94)
+      pdf.rect(margin, currentY, maxWidth, 30, "S")
+
+      pdf.setFontSize(11)
+      pdf.setTextColor(21, 128, 61)
+      pdf.text("Project Summary", margin + 5, currentY + 8)
+      pdf.setFontSize(9)
+      pdf.setTextColor(0, 0, 0)
+      pdf.text(
+        `This comprehensive greening project includes ${pricingElements.length} elements`,
+        margin + 5,
+        currentY + 15,
+      )
+      pdf.text(`with a total estimated cost of $${totalPrice.toFixed(2)}.`, margin + 5, currentY + 22)
+
+      addFooter(pageNumber++, totalPages)
+
+      // PAGE 2+: Images (if any)
+      if (imageItems.length > 0) {
+        pdf.addPage()
+        currentY = addHeader("Selected Images")
+
+        for (let i = 0; i < imageItems.length; i++) {
+          const item = imageItems[i]
+
+          // Check if we need a new page (leaving space for image + text)
+          if (currentY > pdfHeight - 120) {
+            addFooter(pageNumber++, totalPages)
+            pdf.addPage()
+            currentY = addHeader("Selected Images (continued)")
+          }
+
+          try {
+            // Create a temporary image element
+            const img = new Image()
+            img.crossOrigin = "anonymous"
+
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => reject(new Error("Image load timeout")), 10000)
+              img.onload = () => {
+                clearTimeout(timeout)
+                resolve(null)
+              }
+              img.onerror = () => {
+                clearTimeout(timeout)
+                reject(new Error("Image load failed"))
+              }
+              img.src = item.image
+            })
+
+            // Calculate image dimensions to fit within page
+            const maxImgHeight = 80 // Max height in mm
+            const imgRatio = img.width / img.height
+
+            let imgWidth = maxWidth
+            let imgHeight = imgWidth / imgRatio
+
+            if (imgHeight > maxImgHeight) {
+              imgHeight = maxImgHeight
+              imgWidth = imgHeight * imgRatio
+            }
+
+            // Center the image horizontally
+            const imgX = margin + (maxWidth - imgWidth) / 2
+
+            // Add image to PDF
+            const canvas = document.createElement("canvas")
+            const ctx = canvas.getContext("2d")
+            canvas.width = img.width
+            canvas.height = img.height
+            ctx?.drawImage(img, 0, 0)
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.9)
+            pdf.addImage(imgData, "JPEG", imgX, currentY, imgWidth, imgHeight)
+            currentY += imgHeight + 5
+
+            // Add image caption
+            pdf.setFontSize(9)
+            pdf.setTextColor(100, 100, 100)
+            pdf.text(`Image ${i + 1} - ${format(new Date(item.timestamp), "MMM d, h:mm a")}`, margin, currentY)
+            currentY += 8
+
+            // Add associated message if exists
+            if (item.content) {
+              pdf.setFontSize(8)
+              pdf.setTextColor(0, 0, 0)
+              const contentLines = pdf.splitTextToSize(item.content, maxWidth)
+              pdf.text(contentLines, margin, currentY)
+              currentY += contentLines.length * 3 + 15
+            } else {
+              currentY += 10
+            }
+          } catch (error) {
+            console.error(`Failed to load image ${i + 1}:`, error)
+            // Add placeholder for failed images
+            pdf.setFillColor(245, 245, 245)
+            pdf.rect(margin, currentY, maxWidth, 40, "F")
+            pdf.setFontSize(10)
+            pdf.setTextColor(150, 150, 150)
+            pdf.text(`Image ${i + 1} - Failed to load`, margin + 5, currentY + 20)
+            pdf.text(format(new Date(item.timestamp), "MMM d, h:mm a"), margin + 5, currentY + 30)
+            currentY += 50
+          }
+        }
+
+        addFooter(pageNumber++, totalPages)
+      }
+
+      // PAGE 3+: Messages (if any)
+      if (messageItems.length > 0) {
+        pdf.addPage()
+        currentY = addHeader("Selected Messages")
+
+        messageItems.forEach((item, index) => {
+          // Check if we need a new page
+          if (currentY > pdfHeight - 50) {
+            addFooter(pageNumber++, totalPages)
+            pdf.addPage()
+            currentY = addHeader("Selected Messages (continued)")
+          }
+
+          // Message header
+          pdf.setFontSize(10)
+          pdf.setTextColor(21, 128, 61)
+          pdf.text(`Message ${index + 1}`, margin, currentY)
+          pdf.setTextColor(100, 100, 100)
+          pdf.text(format(new Date(item.timestamp), "MMM d, h:mm a"), pdfWidth - margin, currentY, { align: "right" })
+          currentY += 8
+
+          // Message content box
+          const contentLines = pdf.splitTextToSize(item.content, maxWidth - 10)
+          const boxHeight = Math.max(contentLines.length * 4 + 8, 15)
+
+          pdf.setFillColor(249, 250, 251)
+          pdf.rect(margin, currentY, maxWidth, boxHeight, "F")
+          pdf.setDrawColor(229, 231, 235)
+          pdf.rect(margin, currentY, maxWidth, boxHeight, "S")
+
+          pdf.setFontSize(9)
+          pdf.setTextColor(0, 0, 0)
+          pdf.text(contentLines, margin + 5, currentY + 6)
+          currentY += boxHeight + 10
+        })
+
+        addFooter(pageNumber++, totalPages)
+      }
+
+      // FINAL PAGE: Pricing Breakdown
+      pdf.addPage()
+      currentY = addHeader("Pricing Breakdown")
+
+      // Pricing table
+      const colWidths = [60, 25, 25, 30, 30] // Column widths in mm
+      const colX = [
+        margin,
+        margin + colWidths[0],
+        margin + colWidths[0] + colWidths[1],
+        margin + colWidths[0] + colWidths[1] + colWidths[2],
+        margin + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3],
+      ]
+
+      // Table header
+      pdf.setFillColor(240, 253, 244) // Light green background
+      pdf.rect(margin, currentY, maxWidth, 10, "F")
+      pdf.setDrawColor(34, 197, 94)
+      pdf.rect(margin, currentY, maxWidth, 10, "S")
+
+      pdf.setFontSize(9)
+      pdf.setTextColor(21, 128, 61)
+      pdf.text("Element", colX[0] + 2, currentY + 6)
+      pdf.text("Qty", colX[1] + 2, currentY + 6)
+      pdf.text("Unit", colX[2] + 2, currentY + 6)
+      pdf.text("Price/Unit", colX[3] + 2, currentY + 6)
+      pdf.text("Total", colX[4] + 2, currentY + 6)
+      currentY += 12
+
+      // Table rows
+      pdf.setTextColor(0, 0, 0)
+      pricingElements.forEach((element, index) => {
+        if (currentY > pdfHeight - 40) {
+          addFooter(pageNumber++, totalPages)
+          pdf.addPage()
+          currentY = addHeader("Pricing Breakdown (continued)")
+        }
+
+        // Alternate row colors
+        if (index % 2 === 0) {
+          pdf.setFillColor(249, 250, 251)
+          pdf.rect(margin, currentY - 2, maxWidth, 8, "F")
+        }
+
+        pdf.setFontSize(8)
+        const elementName = element.name + (element.isCustom ? " (Custom)" : "")
+        const truncatedName = elementName.length > 25 ? elementName.substring(0, 22) + "..." : elementName
+        pdf.text(truncatedName, colX[0] + 2, currentY + 3)
+        pdf.text(element.quantity.toString(), colX[1] + 2, currentY + 3)
+        pdf.text(element.unit, colX[2] + 2, currentY + 3)
+        pdf.text(`$${element.pricePerUnit.toFixed(2)}`, colX[3] + 2, currentY + 3)
+        pdf.text(`$${element.total.toFixed(2)}`, colX[4] + 2, currentY + 3)
+        currentY += 8
+      })
+
+      // Total row
+      currentY += 5
+      pdf.setFillColor(34, 197, 94) // Green background
+      pdf.rect(margin, currentY - 2, maxWidth, 12, "F")
+      pdf.setFontSize(11)
+      pdf.setTextColor(255, 255, 255)
+      pdf.text("TOTAL PROJECT COST", colX[0] + 2, currentY + 5)
+      pdf.text(`$${totalPrice.toFixed(2)}`, colX[4] + 2, currentY + 5)
+
+      // API Pricing Reference (if available)
+      if (simplePricing) {
+        currentY += 25
+        pdf.setFontSize(10)
+        pdf.setTextColor(21, 128, 61)
+        pdf.text("API Pricing Reference", margin, currentY)
+        currentY += 8
+
+        pdf.setFontSize(9)
+        pdf.setTextColor(0, 0, 0)
+        const pricingLines = pdf.splitTextToSize(simplePricing, maxWidth)
+        pdf.text(pricingLines, margin, currentY)
+      }
+
+      addFooter(pageNumber, totalPages)
 
       // Save the PDF
       pdf.save(`greening-report-${format(new Date(), "yyyyMMdd")}.pdf`)
 
       setPdfGenerated(true)
       toast({
-        title: "PDF Generated",
-        description: "Your report has been downloaded",
+        title: "Multi-Page PDF Generated",
+        description: "Your report has been downloaded with proper page sizing",
       })
     } catch (err) {
       console.error("Error generating PDF:", err)
@@ -137,36 +405,6 @@ export function PdfReport({
         description: "Failed to generate PDF report",
         variant: "destructive",
       })
-
-      // Try a fallback approach if the main approach fails
-      try {
-        const jsPDFModule = await import("jspdf")
-        const JsPDF = jsPDFModule.default
-
-        // Create a simple PDF with just text as a fallback
-        const pdf = new JsPDF()
-        pdf.setFontSize(16)
-        pdf.text("Greenly Project Report", 20, 20)
-        pdf.setFontSize(12)
-        pdf.text(`Resource: ${resourceName}`, 20, 30)
-        pdf.text(`Generated on: ${format(new Date(), "MMMM d, yyyy")}`, 20, 40)
-        pdf.text(`Total Price: $${totalPrice.toFixed(2)}`, 20, 50)
-        pdf.text(`Elements: ${pricingElements.length} items`, 20, 60)
-        pdf.text(`Selected Content: ${selectedItems.length} items`, 20, 70)
-        pdf.text(`- Images: ${selectedItems.filter((i) => i.type === "image").length}`, 20, 80)
-        pdf.text(`- Messages: ${selectedItems.filter((i) => i.type === "message").length}`, 20, 90)
-        pdf.text("Note: This is a simplified report due to rendering issues.", 20, 100)
-
-        pdf.save(`greening-report-${format(new Date(), "yyyyMMdd")}.pdf`)
-
-        setPdfGenerated(true)
-        toast({
-          title: "Simple PDF Generated",
-          description: "A simplified report has been downloaded",
-        })
-      } catch (fallbackErr) {
-        console.error("Fallback PDF generation failed:", fallbackErr)
-      }
     } finally {
       setIsGenerating(false)
     }
